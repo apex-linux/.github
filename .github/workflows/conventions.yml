@@ -1,0 +1,41 @@
+# Shared convention check, called as a job from each repository's ci.yml.
+name: conventions
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  pr-title:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      # The title becomes the squash commit subject, so it follows
+      # https://cbea.ms/git-commit/. GitHub appends " (#123)", which is why
+      # the hard limit here is 65 and not 72.
+      - name: Check the pull request title
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          status=0
+          if (( ${#TITLE} > 65 )); then
+            echo "::error::Title has ${#TITLE} characters; the limit is 65."
+            status=1
+          elif (( ${#TITLE} > 50 )); then
+            echo "::warning::Title has ${#TITLE} characters; aim for 50."
+          fi
+          if [[ ! "${TITLE}" =~ ^[A-Z] ]]; then
+            echo "::error::Capitalize the title."
+            status=1
+          fi
+          if [[ "${TITLE}" == *. ]]; then
+            echo "::error::Do not end the title with a period."
+            status=1
+          fi
+          if [[ "${TITLE}" =~ ^[a-zA-Z]+(\(.+\))?!?:\  ]]; then
+            echo "::error::No type prefix such as 'feat:'; use the imperative."
+            status=1
+          fi
+          exit "${status}"
